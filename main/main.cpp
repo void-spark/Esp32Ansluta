@@ -157,6 +157,8 @@ extern "C" void app_main() {
 
     printf("Minimum free heap size: %lu bytes\n", esp_get_minimum_free_heap_size());
 
+    ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED2, 1));
+
     while(true) {
         xEventGroupWaitBits(event_group, BUTTON_PRESSED, true, true, portMAX_DELAY);
         buttonPressed();

@@ -12,7 +12,7 @@
 #define PIN_NUM_CLK  GPIO_NUM_6
 #define PIN_NUM_CS   GPIO_NUM_10
 
-#define CLK_FREQ     5*1000*1000 // 5Mhz
+#define CLK_FREQ     5 * 1000 * 1000 // 5Mhz
 
 static const char *TAG = "spi";
 

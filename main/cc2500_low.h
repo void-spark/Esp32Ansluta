@@ -12,9 +12,6 @@ uint8_t cc2500LowReadStatusRegister(uint8_t addr);
 // Send command strobe for given address. Returns CC2500 status bye.
 uint8_t cc2500LowSendCommandStrobe(uint8_t addr);
 
-// Enable underflow interrupt, to be called after configuring GDO0.
-void cc2500LowEnableUnderflowInterrupt();
-
 // Wait until RX/TX underflow is signaled.
 void cc2500LowWaitForUnderflow();
 

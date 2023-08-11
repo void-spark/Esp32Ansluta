@@ -1,5 +1,7 @@
+#include <string.h>
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "spi.h"
 #include "cc2500_def.h"
 #include "cc2500_low.h"
@@ -7,18 +9,22 @@
 
 static const char *TAG = "cc2500";
 
+#define BUFFER_SIZE 12
+
+static uint8_t *bufferIn;
+static uint8_t *bufferOut;
+
 // Configure the registers of the CC2500
 static void cc2500Configure() {
     // GDO2: High impedance, we don't use it.
     cc2500LowWriteRegister(REG_IOCFG2, 0x2E);   
-
-    // GDO0 Enable analog temperature sensor: false
-    // GDO0 Active high  
-    // GDO0: Asserts when sync word has been sent / received, and de-asserts at the end of the packet.
-    //       In RX, the pin will de-assert when the optional address check fails or the RX FIFO overflows.
-    //       In TX the pin will de-assert if the TX FIFO underflows.
-    cc2500LowWriteRegister(REG_IOCFG0, 0x06);
-
+    // GDO1 Low output drive strength, Active high,
+    //      Asserts when sync word has been sent / received, and de-asserts at the end of the packet.
+    //      In RX, the pin will de-assert when the optional address check fails or the RX FIFO overflows.
+    //      In TX the pin will de-assert if the TX FIFO underflows.
+    cc2500LowWriteRegister(REG_IOCFG1, 0x06);
+    // GDO0: High impedance, we don't use it.
+    cc2500LowWriteRegister(REG_IOCFG0, 0x2E);
     cc2500LowWriteRegister(REG_PKTLEN, 0xFF);
     cc2500LowWriteRegister(REG_PKTCTRL1, 0x04);
     cc2500LowWriteRegister(REG_PKTCTRL0, 0x05);
@@ -83,14 +89,43 @@ static uint8_t cc2500GetVersionNumber() {
 	return cc2500LowReadStatusRegister(STATUS_VERSION);
 }
 
+esp_err_t cc2500Transmit(uint8_t *packet, size_t size) {
+    if(size + 1 > BUFFER_SIZE) {
+		ESP_LOGE(TAG, "Packet too large for buffer");
+        return ESP_FAIL;
+    }
+    memcpy(bufferOut + 1, packet, size);
+
+    uint8_t status = cc2500LowSendCommandStrobe(CMD_SFTX);
+    uint8_t state = (status >> 4) & 0x07;
+    if(state != 0) {
+        ESP_LOGW(TAG, "Invalid state: %d", state);
+    }
+
+    spiChipEnable();
+    spiExchangeBytes(bufferOut, bufferIn, size + 1);
+    spiChipDisable();
+
+    cc2500LowSendCommandStrobe(CMD_STX);
+
+    cc2500LowWaitForUnderflow();
+
+    return ESP_OK;
+}
+
 esp_err_t cc2500Init() {
+    bufferIn = (uint8_t *)heap_caps_malloc(BUFFER_SIZE, MALLOC_CAP_DMA);
+	memset(bufferIn, 0, BUFFER_SIZE);
+
+    bufferOut = (uint8_t *)heap_caps_malloc(BUFFER_SIZE, MALLOC_CAP_DMA);
+	memset(bufferOut, 0, BUFFER_SIZE);
+    bufferOut[0] = REG_FIFO | HDR_BURST;
+
     cc2500LowInit();
 
 	cc2500ResetDevice();
 
 	cc2500Configure();
-
-    cc2500LowEnableUnderflowInterrupt();
 
 	uint8_t chipPart = cc2500GetPartNumber();
 	uint8_t chipVersion = cc2500GetVersionNumber();

@@ -8,6 +8,7 @@
 #include "cc2500_low.h"
 
 #define PIN_NUM_GDO0 GPIO_NUM_5
+#define PIN_NUM_GDO1 GPIO_NUM_2
 #define PIN_NUM_GDO2 GPIO_NUM_3
 
 static const char *TAG = "cc2500_low";
@@ -17,7 +18,6 @@ static EventGroupHandle_t event_group;
 static const int gdo0Active = BIT0;
 
 static void IRAM_ATTR gdo0IsrHandler(void* arg) {
-    // ESP_ERROR_CHECK(gpio_intr_disable(PIN_NUM_GDO0));
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     BaseType_t xResult = xEventGroupSetBitsFromISR(event_group, gdo0Active, &xHigherPriorityTaskWoken);
     if(xResult == pdPASS){
@@ -30,16 +30,14 @@ void cc2500LowInit() {
 
     event_group = xEventGroupCreate();
 
-    // Setup interrupt for GDO0
-	ESP_ERROR_CHECK(gpio_reset_pin(PIN_NUM_GDO0));
-	ESP_ERROR_CHECK(gpio_set_direction(PIN_NUM_GDO0, GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_set_intr_type(PIN_NUM_GDO0, GPIO_INTR_NEGEDGE));
+    // Setup interrupt for GDO1, which is also MISO!
+    ESP_ERROR_CHECK(gpio_set_intr_type(PIN_NUM_GDO1, GPIO_INTR_NEGEDGE));
 
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
-    ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_NUM_GDO0, gdo0IsrHandler, NULL));
-    // The gpio_isr_handler_add method enabled the interrupt, so disabling it should be done after
-    ESP_ERROR_CHECK(gpio_intr_disable(PIN_NUM_GDO0));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_NUM_GDO1, gdo0IsrHandler, NULL));
+    // The gpio_isr_handler_add method enables the interrupt, so disabling it should be done after
+    ESP_ERROR_CHECK(gpio_intr_disable(PIN_NUM_GDO1));
 }
 
 uint8_t cc2500LowWriteRegister(uint8_t addr, uint8_t value) {
@@ -81,12 +79,10 @@ uint8_t cc2500LowSendCommandStrobe(uint8_t addr) {
     return status1;
 }
 
-void cc2500LowEnableUnderflowInterrupt() {
-    ESP_ERROR_CHECK(gpio_intr_enable(PIN_NUM_GDO0));
-}
-
 void cc2500LowWaitForUnderflow() {
+    ESP_ERROR_CHECK(gpio_intr_enable(PIN_NUM_GDO1));
     xEventGroupWaitBits(event_group, gdo0Active, true, true, portMAX_DELAY);
+    ESP_ERROR_CHECK(gpio_intr_disable(PIN_NUM_GDO1));
     return;
 }
 
