@@ -86,7 +86,6 @@ static bool handleAnyMessage(const char* topic, const char* data) {
 }
 
 static void buttonPressed() {
-    // Command 0x01=Light OFF 0x02=50% 0x03=100% 0xFF=Pairing
     uint16_t address = 0x3E94;
     ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 1));
     anslutaSendCommand(address, state + 1);
@@ -147,7 +146,7 @@ extern "C" void app_main() {
 
     mqttWait();
 
-    cc2500Init();
+    anslutaInit();
 
     esp_rom_gpio_pad_select_gpio(BTN_BOOT);
     gpio_set_direction(BTN_BOOT, GPIO_MODE_INPUT);

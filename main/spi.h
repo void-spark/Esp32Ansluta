@@ -14,5 +14,5 @@ void spiChipDisable();
 // Send and read one byte.
 uint8_t spiExchangeByte(uint8_t txValue);
 
-// TEMP!
-void spiEnableIntr();
+// Send and read mulktiple bytes, buffers must be DMA compatible and 32 bit aligned (start and end).
+void spiExchangeBytes(uint8_t *bufferOut, uint8_t *bufferIn, size_t count);

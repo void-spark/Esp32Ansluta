@@ -64,3 +64,14 @@ uint8_t spiExchangeByte(uint8_t txValue) {
 	ESP_ERROR_CHECK(spi_device_transmit(_handle, &spi_transaction));
 	return spi_transaction.rx_data[0];
 }
+
+void spiExchangeBytes(uint8_t *bufferOut, uint8_t *bufferIn, size_t count) {
+	spi_transaction_t spi_transaction;
+	memset(&spi_transaction, 0, sizeof(spi_transaction_t));
+    spi_transaction.flags = 0;
+	spi_transaction.length = 8 * count;
+    spi_transaction.tx_buffer = bufferOut;
+    spi_transaction.rx_buffer = bufferIn;
+	ESP_ERROR_CHECK(spi_device_transmit(_handle, &spi_transaction));
+	return;
+}
