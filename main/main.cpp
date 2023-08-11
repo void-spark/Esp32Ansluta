@@ -28,7 +28,7 @@ static const char *TAG = "app";
 #define millis() xTaskGetTickCount()*portTICK_PERIOD_MS
 #define delayMicroseconds(microsec) esp_rom_delay_us(microsec)
 
-static const char* ota_url = "http://raspberrypi.fritz.box:8032/esp32/1602RawIdf.bin";
+static const char* ota_url = "http://debian.fritz.box:8032/esp32/Esp32Ansluta.bin";
 
 static TimerHandle_t buttonTimer;
 
