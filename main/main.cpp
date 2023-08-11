@@ -15,9 +15,8 @@
 #include "lwip/apps/sntp.h"
 #include "wifi_helper.h"
 #include "mqtt_helper.h"
-#include "spi.h"
-#include "cc2500_def.h"
-#include "cc2500_low.h"
+#include "cc2500.h"
+#include "ansluta.h"
 
 static const char *TAG = "app";
 
@@ -86,138 +85,12 @@ static bool handleAnyMessage(const char* topic, const char* data) {
     return false;
 }
 
-static void sendAnslutaCommand(uint8_t command) {
-    uint16_t address = 0x3E94;
-
-    ESP_LOGI(TAG, "Sending...");
-
-    for(int cnt = 0; cnt < 50; cnt++) {
-        uint8_t status2 = sendCommandStrobe(CMD_SFTX);
-        uint8_t state = (status2 >> 4) & 0x07;
-        if(state != 0) {
-            ESP_LOGW(TAG, "Invalid state: %d", state);
-        }
-
-        spiChipEnable();
-        spiExchangeByte(REG_FIFO | HDR_BURST);
-        spiExchangeByte(0x06);
-        spiExchangeByte(0x55);
-        spiExchangeByte(0x01);                 
-        spiExchangeByte((uint8_t)(address >> 8));
-        spiExchangeByte((uint8_t)(address & 0xFF));
-        spiExchangeByte((uint8_t)command);
-        spiExchangeByte(0xAA);
-        spiExchangeByte(0xFF);
-        spiChipDisable();
-
-        ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 1));
-        sendCommandStrobe(CMD_STX);
-        waitForUnderflow();
-        ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 0));
-    }
-
-    ESP_LOGI(TAG, "Sent");
-}
-
-static void cc2500Init() {
-    // writeRegister(REG_IOCFG2, 0x29); // CHIP_RDYn
-    writeRegister(REG_IOCFG2, 0x2E);
-    
-
-    // GDO0 Enable analog temperature sensor: false
-    // GDO0 Active high  
-    // GDO0: Asserts when sync word has been sent / received, and de-asserts at the end of the packet.
-    // In RX, the pin will de-assert when the optional address check fails or the RX FIFO overflows.
-    // In TX the pin will de-assert if the TX FIFO underflows.
-    writeRegister(REG_IOCFG0, 0x06);
-
-    writeRegister(REG_PKTLEN, 0xFF);
-    writeRegister(REG_PKTCTRL1, 0x04);
-    writeRegister(REG_PKTCTRL0, 0x05);
-    writeRegister(REG_ADDR, 0x01);
-    writeRegister(REG_CHANNR, 0x10);
-    writeRegister(REG_FSCTRL1, 0x09);
-    writeRegister(REG_FSCTRL0, 0x00);
-    writeRegister(REG_FREQ2, 0x5D);
-    writeRegister(REG_FREQ1, 0x93);
-    writeRegister(REG_FREQ0, 0xB1);
-    writeRegister(REG_MDMCFG4, 0x2D);
-    writeRegister(REG_MDMCFG3, 0x3B);
-    writeRegister(REG_MDMCFG2, 0x73); // MSK
-    writeRegister(REG_MDMCFG1, 0xA2);
-    writeRegister(REG_MDMCFG0, 0xF8);
-    writeRegister(REG_DEVIATN, 0x01);
-    writeRegister(REG_MCSM2, 0x07);
-    
-    // Clear channel indication: If RSSI below threshold unless currently receiving a packet (default)
-    // Next state after finishing packet reception: IDLE (default)
-    // Next state after finishing packet transmission: IDLE (default)
-    writeRegister(REG_MCSM1, 0x30);
-
-    writeRegister(REG_MCSM0, 0x18);
-    writeRegister(REG_FOCCFG, 0x1D);
-    writeRegister(REG_BSCFG, 0x1C);
-    writeRegister(REG_AGCTRL2, 0xC7);
-    writeRegister(REG_AGCTRL1, 0x00);
-    writeRegister(REG_AGCTRL0, 0xB2);
-    writeRegister(REG_WOREVT1, 0x87);
-    writeRegister(REG_WOREVT0, 0x6B);
-    writeRegister(REG_WORCTRL, 0xF8);
-    writeRegister(REG_FREND1, 0xB6);
-    writeRegister(REG_FREND0, 0x10);
-    writeRegister(REG_FSCAL3, 0xEA);
-    writeRegister(REG_FSCAL2, 0x0A);
-    writeRegister(REG_FSCAL1, 0x00);
-    writeRegister(REG_FSCAL0, 0x11);
-    writeRegister(REG_RCCTRL1, 0x41);
-    writeRegister(REG_RCCTRL0, 0x00);
-    writeRegister(REG_FSTEST, 0x59);
-
-    writeRegister(REG_TEST2, 0x88);
-    writeRegister(REG_TEST1, 0x31);
-    writeRegister(REG_TEST0, 0x0B);
-
-    writeRegister(REG_PATABLE, 0xFF); // Set PATABLE[0]: Max Output power (for MSK)
-}
-
-static void resetDevice(void) {
-	sendCommandStrobe(CMD_SRES);
-}
-
-static uint8_t getPartNumber(void) {
-	return readStatusRegister(STATUS_PARTNUM);
-}
-
-static uint8_t getVersionNumber(void) {
-	return readStatusRegister(STATUS_VERSION);
-}
-
-static esp_err_t cc2500Begin() {
-	spiInit();
-
-    cc2500LowInit();
-
-	resetDevice();
-
-	cc2500Init();
-
-    enableUnderflowInterrupt();
-
-	uint8_t ChipPart = getPartNumber();
-	uint8_t ChipVersion = getVersionNumber();
-	ESP_LOGI(TAG, "Part number=%x", ChipPart);
-	ESP_LOGI(TAG, "Version number=%x", ChipVersion);
-	if (ChipPart != 0x80 || ChipVersion != 0x03) {
-		ESP_LOGE(TAG, "CC2500 Not Installed");
-		return ESP_FAIL;
-	}
-	ESP_LOGI(TAG, "CC2500 Installed");
-	return ESP_OK;
-}
-
 static void buttonPressed() {
     // Command 0x01=Light OFF 0x02=50% 0x03=100% 0xFF=Pairing
-    sendAnslutaCommand(state + 1);
+    uint16_t address = 0x3E94;
+    ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 1));
+    anslutaSendCommand(address, state + 1);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 0));
 
     state = (state + 1) % 3;
 
@@ -274,7 +147,7 @@ extern "C" void app_main() {
 
     mqttWait();
 
-    cc2500Begin();
+    cc2500Init();
 
     esp_rom_gpio_pad_select_gpio(BTN_BOOT);
     gpio_set_direction(BTN_BOOT, GPIO_MODE_INPUT);

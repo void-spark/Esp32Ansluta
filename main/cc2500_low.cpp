@@ -1,4 +1,3 @@
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "esp_err.h"
@@ -27,6 +26,8 @@ static void IRAM_ATTR gdo0IsrHandler(void* arg) {
 }
 
 void cc2500LowInit() {
+	spiInit();
+
     event_group = xEventGroupCreate();
 
     // Setup interrupt for GDO0
@@ -41,7 +42,7 @@ void cc2500LowInit() {
     ESP_ERROR_CHECK(gpio_intr_disable(PIN_NUM_GDO0));
 }
 
-uint8_t writeRegister(uint8_t addr, uint8_t value) {
+uint8_t cc2500LowWriteRegister(uint8_t addr, uint8_t value) {
     if(addr > 0x3f) {
         ESP_LOGW(TAG, "Invalid register address %x", addr);
     }
@@ -53,7 +54,7 @@ uint8_t writeRegister(uint8_t addr, uint8_t value) {
     return status2;
 }
 
-uint8_t readStatusRegister(uint8_t addr) {
+uint8_t cc2500LowReadStatusRegister(uint8_t addr) {
     if(addr > 0x3f) {
         ESP_LOGW(TAG, "Invalid status register address %x", addr);
     }
@@ -63,12 +64,12 @@ uint8_t readStatusRegister(uint8_t addr) {
 	uint8_t result = spiExchangeByte(0);
 	spiChipDisable();
 
-    // printStatusByte(status1);
+    // cc2500LowPrintStatusByte(status1);
 
 	return result;
 }
 
-uint8_t sendCommandStrobe(uint8_t addr) {
+uint8_t cc2500LowSendCommandStrobe(uint8_t addr) {
     if(addr > 0x3f) {
         ESP_LOGW(TAG, "Invalid command strobe address %x", addr);
     }
@@ -80,16 +81,16 @@ uint8_t sendCommandStrobe(uint8_t addr) {
     return status1;
 }
 
-void enableUnderflowInterrupt() {
+void cc2500LowEnableUnderflowInterrupt() {
     ESP_ERROR_CHECK(gpio_intr_enable(PIN_NUM_GDO0));
 }
 
-void waitForUnderflow() {
+void cc2500LowWaitForUnderflow() {
     xEventGroupWaitBits(event_group, gdo0Active, true, true, portMAX_DELAY);
     return;
 }
 
-void printStatusByte(uint8_t status) {
+void cc2500LowPrintStatusByte(uint8_t status) {
     bool chipReady = !((status >> 7) & 0x01);
     uint8_t state = (status >> 4) & 0x07;
     uint8_t fifoBytesAvailable = status & 0x0f;
