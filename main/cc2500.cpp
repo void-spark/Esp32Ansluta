@@ -90,11 +90,12 @@ static uint8_t cc2500GetVersionNumber() {
 }
 
 esp_err_t cc2500Transmit(uint8_t *packet, size_t size) {
-    if(size + 1 > BUFFER_SIZE) {
+    if(size + 2 > BUFFER_SIZE) {
 		ESP_LOGE(TAG, "Packet too large for buffer");
         return ESP_FAIL;
     }
-    memcpy(bufferOut + 1, packet, size);
+    bufferOut[1] = size;
+    memcpy(bufferOut + 2, packet, size);
 
     uint8_t status = cc2500LowSendCommandStrobe(CMD_SFTX);
     uint8_t state = (status >> 4) & 0x07;
@@ -103,7 +104,7 @@ esp_err_t cc2500Transmit(uint8_t *packet, size_t size) {
     }
 
     spiChipEnable();
-    spiExchangeBytes(bufferOut, bufferIn, size + 1);
+    spiExchangeBytes(bufferOut, bufferIn, size + 2);
     spiChipDisable();
 
     cc2500LowSendCommandStrobe(CMD_STX);
