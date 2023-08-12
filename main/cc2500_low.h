@@ -11,6 +11,8 @@ uint8_t cc2500LowWriteRegisters(uint8_t addr, uint8_t* buffer, size_t size);
 
 uint8_t cc2500LowReadRegister(uint8_t addr);
 
+void cc2500LowReadMultiRegisterValues(uint8_t addr, uint8_t* buffer, size_t size);
+
 uint8_t cc2500LowReadStatusRegister(uint8_t addr);
 
 // Send command strobe for given address. Returns CC2500 status bye.

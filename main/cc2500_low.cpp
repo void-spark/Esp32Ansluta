@@ -77,12 +77,26 @@ uint8_t cc2500LowReadRegister(uint8_t addr) {
 
     spiChipEnable();
 	uint8_t status1 = spiExchangeByte(addr | HDR_READ);
-	uint8_t result = spiExchangeByte(0);
+	uint8_t result = spiExchangeByte(0x00);
 	spiChipDisable();
 
     // cc2500LowPrintStatusByte(status1);
 
 	return result;
+}
+
+void cc2500LowReadMultiRegisterValues(uint8_t addr, uint8_t* buffer, size_t size) {
+    if(addr > 0x3f) {
+        ESP_LOGW(TAG, "Invalid register address %x", addr);
+    }
+    spiChipEnable();
+	uint8_t status1 = spiExchangeByte(addr | HDR_READ | HDR_BURST);
+    for(int pos = 0; pos < size; pos++) {
+	    buffer[pos] = spiExchangeByte(0x00);
+    }
+	spiChipDisable();
+
+    return;
 }
 
 

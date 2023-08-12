@@ -63,7 +63,7 @@ const static uint8_t REG_DEFAULTS[] = {
 // In memory storage of the register values we want to set
 static uint8_t regConfig[sizeof(REG_DEFAULTS)];
 
-#define BUFFER_SIZE 12
+#define BUFFER_SIZE 16
 
 static uint8_t *bufferIn;
 static uint8_t *bufferOut;
@@ -173,7 +173,7 @@ void cc2500LoadCommon() {
     cc2500LoadRegister(REG_FSCAL0, 0x11);
 }
 
-static void cc2500ApplyConfig() {
+void cc2500ApplyConfig() {
     cc2500LowWriteRegisters(REG_IOCFG2, regConfig, sizeof(regConfig));
 }
 

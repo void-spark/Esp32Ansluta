@@ -17,6 +17,7 @@
 #include "mqtt_helper.h"
 #include "cc2500.h"
 #include "ansluta.h"
+#include "livingcolors.h"
 
 static const char *TAG = "app";
 
@@ -88,7 +89,19 @@ static bool handleAnyMessage(const char* topic, const char* data) {
 static void buttonPressed() {
     uint16_t address = 0x3E94;
     ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 1));
+
+    anslutaApplyConfig();
     anslutaSendCommand(address, state + 1);
+
+    livingcolorsApplyConfig();
+    // learnLamps();
+    if(state == 0) {
+        livingcolorsOff();
+    }
+    if(state == 2) {
+        livingcolorsOn();
+    }
+
     ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 0));
 
     state = (state + 1) % 3;
@@ -147,6 +160,7 @@ extern "C" void app_main() {
     mqttWait();
 
     anslutaInit();
+    //livingcolorsInit();
 
     esp_rom_gpio_pad_select_gpio(BTN_BOOT);
     gpio_set_direction(BTN_BOOT, GPIO_MODE_INPUT);

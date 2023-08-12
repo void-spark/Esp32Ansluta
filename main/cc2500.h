@@ -32,6 +32,8 @@ void cc2500LoadCommon();
 // Load the specified value to the specified register address, does not apply anything.
 void cc2500LoadRegister(uint8_t addr, uint8_t value);
 
+void cc2500ApplyConfig();
+
 void configureFifoThreshold(fifoThreshold threshold);
 
 esp_err_t cc2500Transmit(uint8_t *packet, size_t size);

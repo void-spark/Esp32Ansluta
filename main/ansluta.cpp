@@ -10,20 +10,28 @@ static const char *TAG = "ansluta";
 
 static uint8_t packet[PACKET_SIZE];
 
-void anslutaInit() {
+static void anslutaConfig() {
     cc2500LoadDefaults();
     cc2500LoadCommon();
     cc2500LoadRegister(REG_PKTCTRL0, 0x05); // Ansluta does not use whitening
     cc2500LoadRegister(REG_CHANNR, 0x10); // Ansluta uses channel 10
     cc2500LoadRegister(REG_MDMCFG1, 0xA2); // Enable Forward Error Correction: enabled
     cc2500LoadRegister(REG_DEVIATN, 0x01);
+}
 
+void anslutaInit() {
+    anslutaConfig();
     cc2500Init();
 
     packet[0] = 0x55;
     packet[1] = 0x01;
     // Two address bytes, one command byte
     packet[5] = 0xAA;
+}
+
+void anslutaApplyConfig() {
+    anslutaConfig();
+    cc2500ApplyConfig();
 }
 
 void anslutaSendCommand(uint16_t address, uint8_t command) {
