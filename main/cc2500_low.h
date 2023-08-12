@@ -7,6 +7,8 @@ void cc2500LowInit();
 // Write value to CC2500 register at given address. Returns CC2500 status bye.
 uint8_t cc2500LowWriteRegister(uint8_t addr, uint8_t value);
 
+uint8_t cc2500LowWriteRegisters(uint8_t addr, uint8_t* buffer, size_t size);
+
 uint8_t cc2500LowReadRegister(uint8_t addr);
 
 uint8_t cc2500LowReadStatusRegister(uint8_t addr);
