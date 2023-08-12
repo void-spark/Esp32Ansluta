@@ -52,6 +52,22 @@ uint8_t cc2500LowWriteRegister(uint8_t addr, uint8_t value) {
     return status2;
 }
 
+uint8_t cc2500LowReadRegister(uint8_t addr) {
+    if(addr > 0x3f) {
+        ESP_LOGW(TAG, "Invalid register address %x", addr);
+    }
+
+    spiChipEnable();
+	uint8_t status1 = spiExchangeByte(addr | HDR_READ);
+	uint8_t result = spiExchangeByte(0);
+	spiChipDisable();
+
+    // cc2500LowPrintStatusByte(status1);
+
+	return result;
+}
+
+
 uint8_t cc2500LowReadStatusRegister(uint8_t addr) {
     if(addr > 0x3f) {
         ESP_LOGW(TAG, "Invalid status register address %x", addr);
