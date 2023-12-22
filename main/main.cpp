@@ -63,6 +63,7 @@ static void ota_task(void * pvParameter) {
 static void subscribeTopics() {
     subscribeDevTopic("$update");
     subscribeTopic("devices/cc2500/cabinet");
+    subscribeTopic("devices/cc2500/livingcolors");
 }
 
 static void handleMessage(const char* topic1, const char* topic2, const char* topic3, const char* data) {
@@ -90,6 +91,30 @@ static bool handleAnyMessage(const char* topic, const char* data) {
         if(strcmp(data, "high") == 0) {            
             anslutaSendCommand(address, 3);
         }
+        return true;
+    }
+
+    if(strcmp(topic, "devices/cc2500/livingcolors") == 0) {
+        livingcolorsApplyConfig();
+        if(strcmp(data, "off") == 0) {
+            livingcolorsOff();
+        }
+        if(strcmp(data, "on") == 0) {            
+            livingcolorsOn();
+        }
+
+        if(strncmp(data, "rgb:", 4) == 0) {            
+            char *dup = strdup(data + 4);
+
+            int red = atoi(strtok(dup, ","));
+            int green = atoi(strtok(NULL, ","));
+            int blue = atoi(strtok(NULL,","));
+
+            free(dup);
+
+            livingcolorsRgb(red, green, blue);
+        }
+
         return true;
     }
 
