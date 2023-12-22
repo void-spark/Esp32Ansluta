@@ -62,7 +62,7 @@ static void ota_task(void * pvParameter) {
 
 static void subscribeTopics() {
     subscribeDevTopic("$update");
-    subscribeTopic("devices/cc2500");
+    subscribeTopic("devices/cc2500/cabinet");
 }
 
 static void handleMessage(const char* topic1, const char* topic2, const char* topic3, const char* data) {
@@ -75,11 +75,21 @@ static void handleMessage(const char* topic1, const char* topic2, const char* to
     }
 }
 
+
 static bool handleAnyMessage(const char* topic, const char* data) {
+    uint16_t address = 0x3E94;
 
-    if(strcmp(topic,"devices/cc2500") == 0) {
-
-
+    if(strcmp(topic,"devices/cc2500/cabinet") == 0) {
+        anslutaApplyConfig();
+        if(strcmp(data, "off") == 0) {
+            anslutaSendCommand(address, 1);
+        }
+        if(strcmp(data, "low") == 0) {
+            anslutaSendCommand(address, 2);
+        }
+        if(strcmp(data, "high") == 0) {            
+            anslutaSendCommand(address, 3);
+        }
         return true;
     }
 
