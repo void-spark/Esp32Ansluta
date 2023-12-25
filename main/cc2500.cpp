@@ -145,13 +145,13 @@ static esp_err_t configureFrequencyControlWord(uint32_t frequencyControlWord) {
 }
 
 void cc2500LoadCommon() {
-    // GDO2: High impedance, we don't use it.
-    cc2500LoadRegister(REG_IOCFG2, 0x2E);   
-    // GDO1 Low output drive strength, Active high,
+    // GDO2 Low output drive strength, Active high,
     //      Asserts when sync word has been sent / received, and de-asserts at the end of the packet.
     //      In RX, the pin will de-assert when the optional address check fails or the RX FIFO overflows.
     //      In TX the pin will de-assert if the TX FIFO underflows.
-    cc2500LoadRegister(REG_IOCFG1, 0x06);
+    cc2500LoadRegister(REG_IOCFG2, 0x06);
+    // GDO1: High impedance, we don't use it (as generic pin, still works as SO)
+    cc2500LoadRegister(REG_IOCFG1, 0x2E);
     // GDO0: High impedance, we don't use it.
     cc2500LoadRegister(REG_IOCFG0, 0x2E);
     cc2500LoadRegister(REG_FSCTRL1, 0x09);
@@ -200,19 +200,36 @@ esp_err_t cc2500Transmit(uint8_t *packet, size_t size) {
     bufferOut[1] = size;
     memcpy(bufferOut + 2, packet, size);
 
-    uint8_t status = cc2500LowSendCommandStrobe(CMD_SFTX);
-    uint8_t state = (status >> 4) & 0x07;
-    if(state != 0) {
-        ESP_LOGW(TAG, "Invalid state: %d", state);
+    // We expect to be in IDLE state
+    uint8_t status = cc2500LowSendCommandStrobe(CMD_SNOP);
+    uint8_t state = GET_STATE(status);
+    if(state != STATE_IDLE) {
+        ESP_LOGW(TAG, "Invalid state@tx-pre: %d", state);
     }
 
+    // Store the packet bytes in the TX FIFO
     spiChipEnable();
     spiExchangeBytes(bufferOut, bufferIn, size + 2);
     spiChipDisable();
 
+    // Make sure no packet sent flag is still set.
+    cc2500ResetUnderflow();
+
+    // Start sending the packet
     cc2500LowSendCommandStrobe(CMD_STX);
 
-    cc2500LowWaitForUnderflow();
+    // Wait until packet is sent
+    bool succes = cc2500LowWaitForUnderflow(25);
+    if(!succes) {
+        ESP_LOGW(TAG, "TX timeout");
+    }
+
+    // Once the packet is sent, we should automatically return to IDLE state.
+    status = cc2500LowSendCommandStrobe(CMD_SNOP);
+    state = GET_STATE(status);
+    if(state != STATE_IDLE) {
+        ESP_LOGW(TAG, "Invalid state@tx-post: %d", state);
+    }
 
     return ESP_OK;
 }

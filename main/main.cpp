@@ -5,7 +5,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "freertos/event_groups.h"
 #include "esp_rom_gpio.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
@@ -26,17 +25,7 @@ static const char *TAG = "app";
 #define PIN_NUM_LED1 GPIO_NUM_12
 #define PIN_NUM_LED2 GPIO_NUM_13
 
-#define millis() xTaskGetTickCount()*portTICK_PERIOD_MS
-#define delayMicroseconds(microsec) esp_rom_delay_us(microsec)
-
 static const char* ota_url = "http://debian.fritz.box:8032/esp32/Esp32Ansluta.bin";
-
-static TimerHandle_t buttonTimer;
-
-static EventGroupHandle_t event_group;
-static const int BUTTON_PRESSED = BIT0;
-
-static uint8_t state = 0x02;
 
 static void ota_task(void * pvParameter) {
     ESP_LOGI(TAG, "Starting OTA update...");
@@ -76,7 +65,6 @@ static void handleMessage(const char* topic1, const char* topic2, const char* to
     }
 }
 
-
 static bool handleAnyMessage(const char* topic, const char* data) {
     uint16_t address = 0x3E94;
 
@@ -97,10 +85,10 @@ static bool handleAnyMessage(const char* topic, const char* data) {
     if(strcmp(topic, "devices/cc2500/livingcolors") == 0) {
         livingcolorsApplyConfig();
         if(strcmp(data, "off") == 0) {
-            livingcolorsOff();
+            livingcolorsOff(false);
         }
         if(strcmp(data, "on") == 0) {            
-            livingcolorsOn();
+            livingcolorsOn(false);
         }
 
         if(strncmp(data, "rgb:", 4) == 0) {            
@@ -112,48 +100,26 @@ static bool handleAnyMessage(const char* topic, const char* data) {
 
             free(dup);
 
-            livingcolorsRgb(red, green, blue);
+            livingcolorsRgb(red, green, blue, false);
         }
+
+        if(strncmp(data, "hsv:", 4) == 0) {            
+            char *dup = strdup(data + 4);
+
+            int hue = atoi(strtok(dup, ","));
+            int saturation = atoi(strtok(NULL, ","));
+            int value = atoi(strtok(NULL,","));
+
+            free(dup);
+
+            livingcolorsHsv(hue, saturation, value, false);
+        }
+
 
         return true;
     }
 
     return false;
-}
-
-static void buttonPressed() {
-    uint16_t address = 0x3E94;
-    ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 1));
-
-    anslutaApplyConfig();
-    anslutaSendCommand(address, state + 1);
-
-    livingcolorsApplyConfig();
-    // learnLamps();
-    if(state == 0) {
-        livingcolorsOff();
-    }
-    if(state == 2) {
-        livingcolorsOn();
-    }
-
-    ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED1, 0));
-
-    state = (state + 1) % 3;
-
-    mqttPublish("devices/cc2500/button", "true", 4, 2, 0);
-}
-
-static void buttonTimerCallback(TimerHandle_t xTimer) { 
-    // Active low!
-    int level = gpio_get_level(BTN_BOOT);
-
-    // https://www.embedded.com/electronics-blogs/break-points/4024981/My-favorite-software-debouncers
-    static uint16_t state = 0; // Current debounce status
-    state=(state<<1) | !level | 0xe000;
-    if(state==0xf000) {
-        xEventGroupSetBits(event_group, BUTTON_PRESSED);
-    }
 }
 
 extern "C" void app_main() {
@@ -165,8 +131,6 @@ extern "C" void app_main() {
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
-    event_group = xEventGroupCreate();
 
 	ESP_ERROR_CHECK(gpio_reset_pin(PIN_NUM_LED1));
 	ESP_ERROR_CHECK(gpio_set_direction(PIN_NUM_LED1, GPIO_MODE_OUTPUT));
@@ -188,7 +152,7 @@ extern "C" void app_main() {
     sntp_init();
 
 
-    mqttStart(subscribeTopics, handleMessage, handleAnyMessage);
+    ESP_ERROR_CHECK(mqttStart("Esp32Ansluta", subscribeTopics, handleMessage, handleAnyMessage));
 
     ESP_LOGI(TAG, "Waiting for MQTT");
 
@@ -199,17 +163,8 @@ extern "C" void app_main() {
 
     esp_rom_gpio_pad_select_gpio(BTN_BOOT);
     gpio_set_direction(BTN_BOOT, GPIO_MODE_INPUT);
-    
-    buttonTimer = xTimerCreate("ButtonTimer", (5 / portTICK_PERIOD_MS), pdTRUE, (void *) 0, buttonTimerCallback);
-
-    xTimerStart(buttonTimer, 0);
 
     printf("Minimum free heap size: %lu bytes\n", esp_get_minimum_free_heap_size());
 
     ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_LED2, 1));
-
-    while(true) {
-        xEventGroupWaitBits(event_group, BUTTON_PRESSED, true, true, portMAX_DELAY);
-        buttonPressed();
-    }
 }

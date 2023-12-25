@@ -87,3 +87,15 @@
 #define CMD_SFTX    0x3B // Flush the TX FIFO buffer. Only issue SFTX in IDLE or TXFIFO_UNDERFLOW states.
 #define CMD_SWORRST 0x3C // Reset real time clock to Event1 value.
 #define CMD_SNOP    0x3D // No operation. May be used to get access to the chip status byte
+
+// Possible values for the state bits in the Chip Status Byte
+#define STATE_IDLE             0x0 // Idle state (Also reported for some transitional states instead of SETTLING or CALIBRATE)
+#define STATE_RX               0x1 // Receive mode
+#define STATE_TX               0x2 // Transmit mode
+#define STATE_FSTXON           0x3 // Frequency synthesizer is on, ready to start transmitting
+#define STATE_CALIBRATE        0x4 // Frequency synthesizer calibration is running
+#define STATE_SETTLING         0x5 // PLL is settling
+#define STATE_RXFIFO_OVERFLOW  0x6 // RX FIFO has overflowed. Read out any useful data, then flush the FIFO with SFRX
+#define STATE_TXFIFO_UNDERFLOW 0x7 // TX FIFO has underflowed. Acknowledge with SFTX
+
+#define GET_STATE(status) ((status >> 4) & 0x07)

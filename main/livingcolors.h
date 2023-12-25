@@ -6,14 +6,14 @@ void livingcolorsInit();
 
 void livingcolorsApplyConfig();
 
-void livingcolorsSendCommand(uint8_t address[9], uint8_t command, uint8_t h, uint8_t s, uint8_t v);
+bool livingcolorsSendCommand(uint8_t address[9], uint8_t command, uint8_t h, uint8_t s, uint8_t v, bool checkResponse);
 
-void livingcolorsOff();
+bool livingcolorsOff(bool checkResponse);
 
-void livingcolorsOn();
+bool livingcolorsOn(bool checkResponse);
 
-void livingcolorsHsv(uint8_t h, uint8_t s, uint8_t v);
+bool livingcolorsHsv(uint8_t h, uint8_t s, uint8_t v, bool checkResponse);
 
-void livingcolorsRgb(uint8_t r, uint8_t g, uint8_t b);
+bool livingcolorsRgb(uint8_t r, uint8_t g, uint8_t b, bool checkResponse);
 
 void learnLamps();

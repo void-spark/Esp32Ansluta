@@ -4,3 +4,9 @@ sdkconfig
 *.pyc 
 sdk
 ipch/
+debug.log
+.vscode/*
+!.vscode/c_cpp_properties.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json

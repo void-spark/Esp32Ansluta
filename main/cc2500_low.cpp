@@ -15,11 +15,11 @@ static const char *TAG = "cc2500_low";
 
 static EventGroupHandle_t event_group;
 
-static const int gdo0Active = BIT0;
+static const int gdo2Active = BIT0;
 
-static void IRAM_ATTR gdo0IsrHandler(void* arg) {
+static void IRAM_ATTR gdo2IsrHandler(void* arg) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    BaseType_t xResult = xEventGroupSetBitsFromISR(event_group, gdo0Active, &xHigherPriorityTaskWoken);
+    BaseType_t xResult = xEventGroupSetBitsFromISR(event_group, gdo2Active, &xHigherPriorityTaskWoken);
     if(xResult == pdPASS){
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
@@ -30,14 +30,15 @@ void cc2500LowInit() {
 
     event_group = xEventGroupCreate();
 
-    // Setup interrupt for GDO1, which is also MISO!
-    ESP_ERROR_CHECK(gpio_set_intr_type(PIN_NUM_GDO1, GPIO_INTR_NEGEDGE));
+    // Setup GDO2 as input pin
+	ESP_ERROR_CHECK(gpio_reset_pin(PIN_NUM_GDO2));
+	ESP_ERROR_CHECK(gpio_set_pull_mode(PIN_NUM_GDO2, GPIO_PULLUP_PULLDOWN));
+	ESP_ERROR_CHECK(gpio_set_direction(PIN_NUM_GDO2, GPIO_MODE_INPUT));
 
+    // Setup interrupt for GDO2
+    ESP_ERROR_CHECK(gpio_set_intr_type(PIN_NUM_GDO2, GPIO_INTR_NEGEDGE));
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
-
-    ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_NUM_GDO1, gdo0IsrHandler, NULL));
-    // The gpio_isr_handler_add method enables the interrupt, so disabling it should be done after
-    ESP_ERROR_CHECK(gpio_intr_disable(PIN_NUM_GDO1));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_NUM_GDO2, gdo2IsrHandler, NULL));
 }
 
 uint8_t cc2500LowWriteRegister(uint8_t addr, uint8_t value) {
@@ -127,16 +128,19 @@ uint8_t cc2500LowSendCommandStrobe(uint8_t addr) {
     return status1;
 }
 
-void cc2500LowWaitForUnderflow() {
-    ESP_ERROR_CHECK(gpio_intr_enable(PIN_NUM_GDO1));
-    xEventGroupWaitBits(event_group, gdo0Active, true, true, portMAX_DELAY);
-    ESP_ERROR_CHECK(gpio_intr_disable(PIN_NUM_GDO1));
+void cc2500ResetUnderflow() {
+    xEventGroupClearBits(event_group, gdo2Active);
     return;
+}
+
+bool cc2500LowWaitForUnderflow(uint32_t timeoutMs) {
+    EventBits_t bits = xEventGroupWaitBits(event_group, gdo2Active, true, true, timeoutMs / portTICK_PERIOD_MS);
+    return bits != 0x00;
 }
 
 void cc2500LowPrintStatusByte(uint8_t status) {
     bool chipReady = !((status >> 7) & 0x01);
-    uint8_t state = (status >> 4) & 0x07;
+    uint8_t state = GET_STATE(status);
     uint8_t fifoBytesAvailable = status & 0x0f;
     ESP_LOGI(TAG, "Chip ready: %u, State: %u, Fifo bytes available: %u", chipReady, state, fifoBytesAvailable);
 }

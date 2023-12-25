@@ -18,8 +18,12 @@ uint8_t cc2500LowReadStatusRegister(uint8_t addr);
 // Send command strobe for given address. Returns CC2500 status bye.
 uint8_t cc2500LowSendCommandStrobe(uint8_t addr);
 
+// Reset the RX/TX underflow flag.
+// Should be called before starting RX/TX, to ensure no flag is left from a earlier event. 
+void cc2500ResetUnderflow();
+
 // Wait until RX/TX underflow is signaled.
-void cc2500LowWaitForUnderflow();
+bool cc2500LowWaitForUnderflow(uint32_t timeoutMs);
 
 // Print details of the given CC2500 status byte.
 void cc2500LowPrintStatusByte(uint8_t status);

@@ -37,7 +37,7 @@ void livingcolorsApplyConfig() {
     cc2500ApplyConfig();
 }
 
-void livingcolorsSendCommand(uint8_t dst[4], uint8_t src[4], uint8_t command, uint8_t h, uint8_t s, uint8_t v) {
+bool livingcolorsSendCommand(uint8_t dst[4], uint8_t src[4], uint8_t command, uint8_t h, uint8_t s, uint8_t v, bool checkResponse) {
     memcpy(packet, dst, 4);
     memcpy(packet + 4, src, 4);
 
@@ -53,6 +53,9 @@ void livingcolorsSendCommand(uint8_t dst[4], uint8_t src[4], uint8_t command, ui
 
     for(int attempt = 0; attempt < 20; attempt++) {
         ESP_ERROR_CHECK(cc2500Transmit(packet, PACKET_SIZE));
+        if(!checkResponse){
+            continue;
+        }
 
         size_t receive_buffer_size = 16;
 
@@ -60,8 +63,16 @@ void livingcolorsSendCommand(uint8_t dst[4], uint8_t src[4], uint8_t command, ui
 
         bool ok = true;
 
+        cc2500ResetUnderflow();
+
         cc2500LowSendCommandStrobe(CMD_SRX);
-        cc2500LowWaitForUnderflow();
+
+        bool succes = cc2500LowWaitForUnderflow(20);
+        if(!succes) {
+            cc2500LowSendCommandStrobe(CMD_SIDLE);
+            continue;
+        }
+        
         size_t packetLength = cc2500LowReadRegister(REG_FIFO);
         // +2 for the 2 quality related bytes
         if(packetLength + 2 == receive_buffer_size) {
@@ -84,33 +95,32 @@ void livingcolorsSendCommand(uint8_t dst[4], uint8_t src[4], uint8_t command, ui
             ok = false;
         }
 
-        if(!ok) {
-            vTaskDelay(50 / portTICK_PERIOD_MS);
-        } else {
-            break;
+        if(ok) {
+            return true;
         }
     }
+
+    return !checkResponse;
 }
 
-void livingcolorsOff() {
+bool livingcolorsOff(bool checkResponse) {
     uint8_t src[4] = {0x50, 0xB2, 0x47, 0x66};
     uint8_t dst[4] = {0x73, 0xCD, 0x0D, 0x36};
     uint8_t command = 0x07;
     uint8_t h = 0x00;
     uint8_t s = 0x00;
     uint8_t v = 0x00;
-    livingcolorsSendCommand(src, dst, command, h, s, v);
+    return livingcolorsSendCommand(src, dst, command, h, s, v, checkResponse);
 }
 
-
-void livingcolorsOn() {
+bool livingcolorsOn(bool checkResponse) {
     uint8_t src[4] = {0x50, 0xB2, 0x47, 0x66};
     uint8_t dst[4] = {0x73, 0xCD, 0x0D, 0x36};
     uint8_t command = 0x05;
     uint8_t h = 0xFF;
     uint8_t s = 0x00;
     uint8_t v = 0xFF;
-    livingcolorsSendCommand(src, dst, command, h, s, v);    
+    return livingcolorsSendCommand(src, dst, command, h, s, v, checkResponse);    
 }
 
 #define MIN3(x,y,z) ((y)<=(z)?((x)<=(y)?(x):(y)):((x)<=(z)?(x):(z)))
@@ -191,14 +201,14 @@ uint8_t tweakHue(uint8_t realhue) {
     return hue_convtab[realhue];
 }
 
-void livingcolorsHsv(uint8_t h, uint8_t s, uint8_t v) {
+bool livingcolorsHsv(uint8_t h, uint8_t s, uint8_t v, bool checkResponse) {
     uint8_t src[4] = {0x50, 0xB2, 0x47, 0x66};
     uint8_t dst[4] = {0x73, 0xCD, 0x0D, 0x36};
     uint8_t command = 0x03;
-    livingcolorsSendCommand(src, dst, command, h, s, v);    
+    return livingcolorsSendCommand(src, dst, command, h, s, v, checkResponse);
 }
 
-void livingcolorsRgb(uint8_t r, uint8_t g, uint8_t b) {
+bool livingcolorsRgb(uint8_t r, uint8_t g, uint8_t b, bool checkResponse) {
     uint8_t src[4] = {0x50, 0xB2, 0x47, 0x66};
     uint8_t dst[4] = {0x73, 0xCD, 0x0D, 0x36};
     uint8_t command = 0x03;
@@ -207,17 +217,24 @@ void livingcolorsRgb(uint8_t r, uint8_t g, uint8_t b) {
     uint8_t v = 0;
     convertRGBtoHSV(r, g, b, h, s, v);
     h = tweakHue(h);
-    livingcolorsSendCommand(src, dst, command, h, s, v);    
+    return livingcolorsSendCommand(src, dst, command, h, s, v, checkResponse);
 }
 
 void learnLamps() {
     const size_t capturecount = 50;
-    uint8_t data[capturecount][17];
-    int64_t timings[capturecount];
+    uint8_t data[capturecount][17] = {};
+    int64_t timings[capturecount] = {};
 
     for(int count = 0; count < capturecount; count++) {
+        cc2500ResetUnderflow();
+
         cc2500LowSendCommandStrobe(CMD_SRX);
-        cc2500LowWaitForUnderflow();   
+
+        bool succes = cc2500LowWaitForUnderflow(1000 * 30);
+        if(!succes) {
+            break;
+        }
+
         timings[count] = esp_timer_get_time();
 
         size_t packetLength = cc2500LowReadRegister(REG_FIFO);
